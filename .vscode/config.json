@@ -1,0 +1,6 @@
+{
+    "python.autocomplete.extraPaths": [
+        "src",
+        "tests"
+    ]
+}
