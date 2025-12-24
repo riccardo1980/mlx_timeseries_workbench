@@ -9,12 +9,13 @@ import os
 import time
 
 from pydantic import BaseModel, Field
+from tensorboardX import SummaryWriter
 from typing import Type
 
 from timeseries_autoencoder import data
 from timeseries_autoencoder.mlx_models import autoencoders 
+from timeseries_autoencoder.mlx_models.base import TrainHelper
 
-from tensorboardX import SummaryWriter
 
 logger = logging.getLogger(__name__)
 
@@ -99,30 +100,36 @@ def main(pars: Params):
 
     logger.info(autoencoder)
 
-    optimizer = optim.Adam(learning_rate=pars.learning_rate)
+    t = TrainHelper(autoencoder)
+    t.compile(
+        optimizer=optim.Adam(learning_rate=pars.learning_rate),
+        loss=loss_fn
+    )
 
-    loss_and_grad_fn = nn.value_and_grad(autoencoder, loss_fn)
-    state = [autoencoder.state, optimizer.state]
+    # optimizer = optim.Adam(learning_rate=pars.learning_rate) # to compile method
 
-    @partial(mx.compile, inputs=state, outputs=state)
-    def step(X, y):
-        loss, grads = loss_and_grad_fn(autoencoder, X, y)
-        optimizer.update(autoencoder, grads)
-        return loss
+    # loss_and_grad_fn = nn.value_and_grad(autoencoder, loss_fn) # to compile method
+    # state = [autoencoder.state, optimizer.state] # to compile method
 
-    @partial(mx.compile, inputs=state)
-    def eval_fn(X, y):
-        return loss_fn(autoencoder, X, y)
+    # @partial(mx.compile, inputs=state, outputs=state) # to fit method
+    # def step(X, y):
+    #     loss, grads = loss_and_grad_fn(autoencoder, X, y)
+    #     optimizer.update(autoencoder, grads)
+    #     return loss
+
+    # @partial(mx.compile, inputs=state)
+    # def eval_fn(X, y):
+    #     return loss_fn(autoencoder, X, y)
 
     with SummaryWriter(log_dir=pars.log_dir) as writer:
         
         for e in range(1,pars.epochs+1):
             tic = time.perf_counter()
             for X, y in batch_iterate(pars.batch_size, train_set, train_labels):
-                train_loss = step(X, y)
+                train_loss = t.step(X, y)
                 mx.eval(autoencoder.state)
             
-            eval_loss = eval_fn(validation_set, validation_set)
+            eval_loss = t.eval_fn(validation_set, validation_set)
             toc = time.perf_counter()
 
             writer.add_scalars('losses', {'train': train_loss.item(), 'eval': eval_loss.item()}, e)
