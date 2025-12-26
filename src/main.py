@@ -1,20 +1,15 @@
 import argparse
-from functools import partial
 import logging
 import mlx.core as mx
 import mlx.nn as nn
 import mlx.optimizers as optim
 import numpy as np
-import os
-import time
 
 from pydantic import BaseModel, Field
-from tensorboardX import SummaryWriter
 from typing import Type
 
-from timeseries_autoencoder import data
-from timeseries_autoencoder.mlx_models import autoencoders 
-from timeseries_autoencoder.mlx_models.base import TrainHelper
+from timeseries_autoencoder import data, callbacks
+from timeseries_autoencoder.mlx_models import autoencoders, base
 
 
 logger = logging.getLogger(__name__)
@@ -84,14 +79,13 @@ def main(pars: Params):
     
     normal_train_data = train_data[train_labels == 0]
 
-    # # split train set to get a validation
+    # split train set to get a validation
     logger.info(f'Splitting train/validation set')
     train_set, validation_set = __split_dataset(normal_train_data)
 
     logger.info(f'train size: {len(train_set)} - validation size: {len(validation_set)}')
 
     train_set = mx.array(train_set)
-    train_labels = mx.array(train_set)
     validation_set = mx.array(validation_set)
 
     logger.info('Creating autoencoder')
@@ -100,50 +94,26 @@ def main(pars: Params):
 
     logger.info(autoencoder)
 
-    t = TrainHelper(autoencoder)
+    t = base.Trainer(autoencoder)
     t.compile(
         optimizer=optim.Adam(learning_rate=pars.learning_rate),
         loss=loss_fn
     )
 
-    # optimizer = optim.Adam(learning_rate=pars.learning_rate) # to compile method
-
-    # loss_and_grad_fn = nn.value_and_grad(autoencoder, loss_fn) # to compile method
-    # state = [autoencoder.state, optimizer.state] # to compile method
-
-    # @partial(mx.compile, inputs=state, outputs=state) # to fit method
-    # def step(X, y):
-    #     loss, grads = loss_and_grad_fn(autoencoder, X, y)
-    #     optimizer.update(autoencoder, grads)
-    #     return loss
-
-    # @partial(mx.compile, inputs=state)
-    # def eval_fn(X, y):
-    #     return loss_fn(autoencoder, X, y)
-
-    with SummaryWriter(log_dir=pars.log_dir) as writer:
-        
-        for e in range(1,pars.epochs+1):
-            tic = time.perf_counter()
-            for X, y in batch_iterate(pars.batch_size, train_set, train_labels):
-                train_loss = t.step(X, y)
-                mx.eval(autoencoder.state)
-            
-            eval_loss = t.eval_fn(validation_set, validation_set)
-            toc = time.perf_counter()
-
-            writer.add_scalars('losses', {'train': train_loss.item(), 'eval': eval_loss.item()}, e)
-            logger.info(f'epoch: {e: 4d} - train_loss: {train_loss.item():.2e} - eval_loss: {eval_loss.item():2e} - time: {toc - tic:.3f}[s]')
-
+    t.fit(
+        train_set,
+        train_set,
+        epochs=pars.epochs,
+        batch_size=pars.batch_size,
+        validation_set=(validation_set, validation_set),
+        verbose=1,
+        callbacks=[
+            callbacks.TensorBoardLogger(log_dir=pars.log_dir)
+        ]
+    )
 
 def loss_fn(model, X, y):
     return nn.losses.l1_loss(model(X), y, reduction="mean")
-
-def batch_iterate(batch_size, X, y):
-    for s in range(0, len(y), batch_size):
-        logger.debug(f'batch iterate: {s}')
-        yield X[s : s + batch_size], y[s : s + batch_size]
-
 
 if __name__ == "__main__":
     logging.basicConfig(
@@ -157,10 +127,11 @@ if __name__ == "__main__":
 
     data.logger.setLevel(logging.DEBUG)
     autoencoders.logger.setLevel(logging.DEBUG)
+    base.logger.setLevel(logging.INFO)
+    callbacks.logger.setLevel(logging.INFO)
 
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
-
 
     parser = argparse.ArgumentParser(
             formatter_class=argparse.ArgumentDefaultsHelpFormatter
