@@ -86,6 +86,39 @@ class Callback(ABC):
               `{'loss': 0.2, 'accuracy': 0.7}`.
         """
 
+class CallbackList(Callback):
+
+    def __init__(self, callbacks=None):
+        self.callbacks = callbacks if callbacks is not None else []
+
+    def append(self, callback):
+        self.callbacks.append(callback)
+
+    def on_train_begin(self, logs=None):
+        for callback in self.callbacks:
+            callback.on_train_begin(logs)
+
+    def on_train_end(self, logs=None):
+        for callback in self.callbacks:
+            callback.on_train_end(logs)
+
+    def on_train_batch_begin(self, batch, logs=None):
+        for callback in self.callbacks:
+            callback.on_train_batch_begin(batch, logs)
+
+    def on_train_batch_end(self, batch, logs=None):
+        for callback in self.callbacks:
+            callback.on_train_batch_end(batch, logs)
+
+    def on_epoch_begin(self, epoch, logs=None):
+        for callback in self.callbacks:
+            callback.on_epoch_begin(epoch, logs)
+
+    def on_epoch_end(self, epoch, logs=None):
+        for callback in self.callbacks:
+            callback.on_epoch_end(epoch, logs)
+
+
 class ProgressBarLogger(Callback):
 
     def __init__(self, epochs, verbose: int):
