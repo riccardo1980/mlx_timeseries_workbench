@@ -5,9 +5,8 @@ import mlx.optimizers as optim
 
 from typing import Callable, Tuple, Optional
 from functools import partial
-from tensorboardX import SummaryWriter
 
-from timeseries_autoencoder.callbacks import ProgressBarLogger
+from timeseries_autoencoder.callbacks import ProgressBarLogger, CallbackList
 
 logger = logging.getLogger(__name__)
 
@@ -48,27 +47,21 @@ class Trainer():
             validation_set: Optional[Tuple[mx.array, mx.array]] = None
 
     ):
-        if callbacks is None:
-            callbacks = []
-
         callbacks.append(ProgressBarLogger(epochs=epochs, verbose=verbose))
-    
-        for callback in callbacks:
-            callback.on_train_begin()
+        callbacks = CallbackList(callbacks)
+
+        callbacks.on_train_begin()
            
         for e in range(1,epochs+1):
-            for callback in callbacks:
-                callback.on_epoch_begin(e)
+            callbacks.on_epoch_begin(e)
             
             for b, (Xb, yb) in enumerate(Trainer._batch_iterate(batch_size, X, y)):
-                for callback in callbacks:
-                    callback.on_train_batch_begin(b)
+                callbacks.on_train_batch_begin(b)
 
                 train_loss = self._train_step(Xb, yb)
                 mx.eval(self.module.state)
 
-                for callback in callbacks:
-                    callback.on_train_batch_end(b)
+                callbacks.on_train_batch_end(b)
 
             eval_loss = None
             if validation_set is not None:
@@ -78,11 +71,9 @@ class Trainer():
             if eval_loss is not None:
                 logs['eval'] = eval_loss.item()
 
-            for callback in callbacks:
-                callback.on_epoch_end(e, logs)
-
-        for callback in callbacks:
-            callback.on_train_end()
+            callbacks.on_epoch_end(e, logs)
+            
+        callbacks.on_train_end()
 
 
     def _build_train_step(self, f: Callable):
