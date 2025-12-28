@@ -1,4 +1,5 @@
 import pytest
+import requests
 from pytest_mock import MockerFixture
 
 from timeseries_autoencoder import data
@@ -23,13 +24,13 @@ def test_maybe_download_file_exists(
 ) -> None:
     exists_mock = mocker.patch("os.path.exists")
     requests_get_mock = mocker.patch("requests.get")
-    requests_get_mock.return_value.iter_content.return_value = [1]
+    requests_get_mock.return_value.iter_content.return_value = [b"chunk"]
     open_mock = mocker.patch("builtins.open", mocker.mock_open())
 
     exists_mock.return_value = exists
-    data.__maybe_download("link", "filename", force=force)
+    data.__maybe_download(link, filename, force=force)
 
-    exists_mock.assert_called_once_with("filename")
+    exists_mock.assert_called_once_with(filename)
     if got == "skip":
         requests_get_mock.assert_not_called()
         open_mock.assert_not_called()
@@ -39,7 +40,16 @@ def test_maybe_download_file_exists(
 
     if got == "download":
         requests_get_mock.assert_called_once_with(link)
+        requests_get_mock.return_value.iter_content.assert_called_once()
         open_mock.assert_called_once_with(filename, "wb")
         open_mock.return_value.__enter__.assert_called_once()
-        open_mock.return_value.write.assert_called_once_with(1)
+        open_mock.return_value.write.assert_called_once_with(b"chunk")
         open_mock.return_value.__exit__.assert_called_once_with(None, None, None)
+
+
+def test_maybe_download_network_error(mocker: MockerFixture) -> None:
+    mocker.patch("os.path.exists", return_value=False)
+    mocker.patch("requests.get", side_effect=requests.exceptions.ConnectionError)
+
+    with pytest.raises(requests.exceptions.ConnectionError):
+        data.__maybe_download("link", "filename")
