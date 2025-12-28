@@ -1,4 +1,5 @@
 import pytest
+from pytest_mock import MockerFixture
 
 from timeseries_autoencoder import data
 
@@ -13,7 +14,7 @@ from timeseries_autoencoder import data
     ],
 )
 def test_maybe_download_file_exists(
-    mocker: pytest.fixture,
+    mocker: MockerFixture,
     filename: str,
     link: str,
     exists: bool,
