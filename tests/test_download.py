@@ -14,7 +14,7 @@ from timeseries_autoencoder import data
         ("filename", "link", True, True, "download"),
     ],
 )
-def test_maybe_download_file_exists(
+def test_maybe_download(
     mocker: MockerFixture,
     filename: str,
     link: str,
