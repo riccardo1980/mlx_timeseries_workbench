@@ -7,7 +7,7 @@ import mlx.core as mx
 import mlx.nn as nn
 import mlx.optimizers as optim
 
-from timeseries_autoencoder.callbacks import Callback, CallbackList, ProgressBarLogger
+from mlx_timeseries_workbench.callbacks import Callback, CallbackList, ProgressBarLogger
 
 logger = logging.getLogger(__name__)
 

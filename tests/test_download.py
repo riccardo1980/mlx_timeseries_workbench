@@ -2,7 +2,7 @@ import pytest
 import requests
 from pytest_mock import MockerFixture
 
-from timeseries_autoencoder import data
+from mlx_timeseries_workbench import data
 
 
 @pytest.mark.parametrize(
@@ -25,7 +25,7 @@ def test_maybe_download(
     exists_mock = mocker.patch("os.path.exists")
     requests_get_mock = mocker.patch("requests.get")
     requests_get_mock.return_value.iter_content.return_value = [b"chunk"]
-    open_mock = mocker.patch("timeseries_autoencoder.data.open", mocker.mock_open())
+    open_mock = mocker.patch("mlx_timeseries_workbench.data.open", mocker.mock_open())
 
     exists_mock.return_value = exists
     data.__maybe_download(link, filename, force=force)

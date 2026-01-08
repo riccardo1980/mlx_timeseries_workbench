@@ -7,8 +7,8 @@ import mlx.optimizers as optim
 import numpy as np
 from pydantic import BaseModel, Field
 
-from timeseries_autoencoder import callbacks, data
-from timeseries_autoencoder.mlx_models import autoencoders, base
+from mlx_timeseries_workbench import callbacks, data
+from mlx_timeseries_workbench.mlx_models import autoencoders, base
 
 logger = logging.getLogger(__name__)
 
