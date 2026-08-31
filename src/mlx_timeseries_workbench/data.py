@@ -11,6 +11,17 @@ logger = logging.getLogger(__name__)
 
 
 def __maybe_download(link: str, filename: str, force: bool = False) -> None:
+    """Download a file from a URL if it does not already exist locally.
+
+    :param link: URL of the file to download.
+    :type link: str
+    :param filename: Local path where the file should be saved.
+    :type filename: str
+    :param force: Whether to overwrite the file if it already exists, defaults to False.
+    :type force: bool, optional
+    :return: None
+    :rtype: None
+    """
     if os.path.exists(filename) and not force:
         logger.debug(f"file {filename} already exists")
     else:
@@ -26,26 +37,19 @@ def get_tensorflow_ECG5000(
     random_state: int = 21,
     keep_original_labels: bool = False,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Download ECG5000 postprocessed dataset
+    """Download and prepare the ECG5000 postprocessed dataset used in TensorFlow tutorials.
 
-    Download dataset used in Tensorflow How-To
+    Link: https://www.tensorflow.org/tutorials/generative/autoencoder
 
-    LINK: https://www.tensorflow.org/tutorials/generative/autoencoder
-
-    :param test_size: Fraction of test data
-    :param random_state: Random state for dataset splitting
-    :param keep_original_labels: default False
-        if True, labels are modified so to adhere custom approach:
-            - nominal -> 0
-            - anomalous -> 1
-        if False, original mapping is retained
-            - nominal -> 1
-            - anomalous -> 0
-
-    :return:
-        train_data, test_data, train_labels, test_labels
-
+    :param test_size: Fraction of the dataset to include in the test split, defaults to 0.2.
+    :type test_size: float, optional
+    :param random_state: Random state seed for reproducible dataset splitting, defaults to 21.
+    :type random_state: int, optional
+    :param keep_original_labels: If True, retains original label mapping (1: Nominal, 0: Anomalous).
+        If False, inverts labels to 0: Nominal, 1: Anomalous, defaults to False.
+    :type keep_original_labels: bool, optional
+    :return: A tuple containing (train_data, test_data, train_labels, test_labels).
+    :rtype: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
     """
 
     LINK = "http://storage.googleapis.com/download.tensorflow.org/data/ecg.csv"
@@ -91,23 +95,15 @@ def get_tensorflow_ECG5000(
 def get_ECG5000(
     keep_original_labels: bool = False,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """
-    ECG5000 dataset
+    """Download and extract the original ECG5000 dataset in ARFF format.
 
-    LINK: https://www.timeseriesclassification.com/description.php?Dataset=ECG5000
+    Link: https://www.timeseriesclassification.com/description.php?Dataset=ECG5000
 
-    :param keep_original_labels: default False
-        if True, labels are modified so to adhere custom approach:
-            - nominal -> 0
-            - anomalous -> 1
-        if False, original mapping is retained
-            - nominal -> 1
-            - anomalous -> 2,3,4,5
-
-    :return:
-        train_data, test_data, train_labels, test_labels
-
-
+    :param keep_original_labels: If True, retains original label mapping (1: Nominal, 2-5: Anomalous).
+        If False, maps labels to 0: Nominal, 1: Anomalous, defaults to False.
+    :type keep_original_labels: bool, optional
+    :return: A tuple containing (train_data, train_labels, test_data, test_labels).
+    :rtype: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
     """
     LINK = "https://www.timeseriesclassification.com/aeon-toolkit/ECG5000.zip"
     TEMP_FOLDER = "../data/temp/ECG5000"
@@ -131,6 +127,13 @@ def get_ECG5000(
     TRAIN_FILE = os.path.join(TEMP_FOLDER, "ECG5000_TRAIN.arff")
 
     def _read_arff(filename: str) -> tuple[np.ndarray, np.ndarray]:
+        """Read time series data and labels from an ARFF file format.
+
+        :param filename: Path to the ARFF file.
+        :type filename: str
+        :return: A tuple of (data, labels) arrays.
+        :rtype: tuple[np.ndarray, np.ndarray]
+        """
         logger.debug(f"reading {filename}")
         df = pd.read_csv(filename, skiprows=145, sep=",", header=None)
         raw_data = df.values

@@ -23,6 +23,15 @@ class Params(BaseModel):
 
 
 def add_model(parser: argparse.ArgumentParser, model: type[BaseModel]) -> None:
+    """Add CLI arguments to an argument parser based on fields in a Pydantic model.
+
+    :param parser: Argument parser instance to configure.
+    :type parser: argparse.ArgumentParser
+    :param model: Pydantic BaseModel class containing configuration parameters.
+    :type model: type[BaseModel]
+    :return: None
+    :rtype: None
+    """
     fields = model.model_fields
     for name, field_info in fields.items():
         if field_info.annotation is bool:
@@ -48,6 +57,15 @@ def add_model(parser: argparse.ArgumentParser, model: type[BaseModel]) -> None:
 def __data_normalization(
     train_data: np.ndarray, test_data: np.ndarray
 ) -> tuple[np.ndarray, np.ndarray]:
+    """Normalize train and test datasets to the [0, 1] range using train data min/max values.
+
+    :param train_data: Training dataset array.
+    :type train_data: np.ndarray
+    :param test_data: Test dataset array.
+    :type test_data: np.ndarray
+    :return: Normalized train and test dataset arrays.
+    :rtype: tuple[np.ndarray, np.ndarray]
+    """
     min_val = np.min(train_data)
     max_val = np.max(train_data)
 
@@ -63,6 +81,17 @@ def __data_normalization(
 def __split_dataset(
     data: np.ndarray, validation_fraction: float = 0.02, seed: int = 123
 ) -> tuple[np.ndarray, np.ndarray]:
+    """Split a dataset into training and validation subsets after random shuffling.
+
+    :param data: Input dataset array to split.
+    :type data: np.ndarray
+    :param validation_fraction: Fraction of data to allocate to validation, defaults to 0.02.
+    :type validation_fraction: float, optional
+    :param seed: Random seed for shuffling, defaults to 123.
+    :type seed: int, optional
+    :return: A tuple containing (train_set, validation_set) arrays.
+    :rtype: tuple[np.ndarray, np.ndarray]
+    """
     rng = np.random.default_rng(seed)
     index: np.ndarray = np.arange(len(data))
     rng.shuffle(index)
@@ -76,6 +105,13 @@ def __split_dataset(
 
 
 def main(pars: Params) -> None:
+    """Run data loading, preprocessing, model initialization, and training pipeline.
+
+    :param pars: Configuration parameters for training and logging.
+    :type pars: Params
+    :return: None
+    :rtype: None
+    """
     logger = logging.getLogger(__name__)
     train_data, test_data, train_labels, test_labels = data.get_tensorflow_ECG5000()
 
@@ -116,6 +152,17 @@ def main(pars: Params) -> None:
 
 
 def loss_fn(model: nn.Module, X: mx.array, y: mx.array) -> mx.array:
+    """Compute mean L1 reconstruction loss between model predictions and target signals.
+
+    :param model: Neural network module to evaluate.
+    :type model: nn.Module
+    :param X: Input time series tensor/array.
+    :type X: mx.array
+    :param y: Target time series tensor/array.
+    :type y: mx.array
+    :return: Mean L1 loss scalar array.
+    :rtype: mx.array
+    """
     t: mx.array = nn.losses.l1_loss(model(X), y, reduction="mean")
     return t
 
