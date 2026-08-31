@@ -7,7 +7,12 @@ import mlx.core as mx
 import mlx.nn as nn
 import mlx.optimizers as optim
 
-from mlx_timeseries_workbench.callbacks import Callback, CallbackList, ProgressBarLogger
+from mlx_timeseries_workbench.callbacks import (
+    Callback,
+    CallbackList,
+    MetricTracker,
+    ProgressBarLogger,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -83,8 +88,12 @@ class Trainer:
         :return: None
         :rtype: None
         """
-        callback_list: CallbackList = CallbackList(callbacks)
-        callback_list.append(ProgressBarLogger(epochs=epochs, verbose=verbose))
+
+        callback_list: CallbackList = (
+            CallbackList(MetricTracker())
+            + callbacks
+            + ProgressBarLogger(epochs=epochs, verbose=verbose)
+        )
         callback_list.on_train_begin()
 
         for e in range(1, epochs + 1):
@@ -94,19 +103,20 @@ class Trainer:
                 callback_list.on_train_batch_begin(b)
 
                 train_loss = self._train_step(Xb, yb)
-                mx.eval(self.module.state)
+                mx.eval(self.state)
 
-                callback_list.on_train_batch_end(b)
+                batch_logs = {
+                    "loss": train_loss.item(),
+                    "size": Xb.shape[0],
+                }
+                callback_list.on_train_batch_end(b, batch_logs)
 
-            eval_loss = None
+            epoch_logs: dict[str, Any] = {}
             if validation_set is not None:
                 eval_loss = self._loss(validation_set[0], validation_set[1])
+                epoch_logs["eval"] = eval_loss.item()
 
-            logs = {"train": train_loss.item()}
-            if eval_loss is not None:
-                logs["eval"] = eval_loss.item()
-
-            callback_list.on_epoch_end(e, logs)
+            callback_list.on_epoch_end(e, epoch_logs)
 
         callback_list.on_train_end()
 
