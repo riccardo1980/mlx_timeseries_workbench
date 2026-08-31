@@ -90,19 +90,29 @@ class Trainer:
         for e in range(1, epochs + 1):
             callback_list.on_epoch_begin(e)
 
+            total_train_loss = 0.0
+            total_samples = 0
+
             for b, (Xb, yb) in enumerate(self._batch_iterate(batch_size, X, y)):
                 callback_list.on_train_batch_begin(b)
 
                 train_loss = self._train_step(Xb, yb)
-                mx.eval(self.module.state)
+                mx.eval(self.state)
+
+                # accumulate batch train loss
+                actual_batch_size = Xb.shape[0]
+                total_train_loss += train_loss.item() * actual_batch_size
+                total_samples += actual_batch_size
 
                 callback_list.on_train_batch_end(b)
 
+            # epoch train loss
+            epoch_train_loss = total_train_loss / total_samples
             eval_loss = None
             if validation_set is not None:
                 eval_loss = self._loss(validation_set[0], validation_set[1])
 
-            logs = {"train": train_loss.item()}
+            logs = {"train": epoch_train_loss}
             if eval_loss is not None:
                 logs["eval"] = eval_loss.item()
 
