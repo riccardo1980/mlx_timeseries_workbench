@@ -7,7 +7,12 @@ import mlx.core as mx
 import mlx.nn as nn
 import mlx.optimizers as optim
 
-from mlx_timeseries_workbench.callbacks import Callback, CallbackList, ProgressBarLogger
+from mlx_timeseries_workbench.callbacks import (
+    Callback,
+    CallbackList,
+    MetricTracker,
+    ProgressBarLogger,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -83,15 +88,16 @@ class Trainer:
         :return: None
         :rtype: None
         """
-        callback_list: CallbackList = CallbackList(callbacks)
-        callback_list.append(ProgressBarLogger(epochs=epochs, verbose=verbose))
+
+        callback_list: CallbackList = (
+            CallbackList(MetricTracker())
+            + callbacks
+            + ProgressBarLogger(epochs=epochs, verbose=verbose)
+        )
         callback_list.on_train_begin()
 
         for e in range(1, epochs + 1):
             callback_list.on_epoch_begin(e)
-
-            total_train_loss = 0.0
-            total_samples = 0
 
             for b, (Xb, yb) in enumerate(self._batch_iterate(batch_size, X, y)):
                 callback_list.on_train_batch_begin(b)
@@ -99,24 +105,18 @@ class Trainer:
                 train_loss = self._train_step(Xb, yb)
                 mx.eval(self.state)
 
-                # accumulate batch train loss
-                actual_batch_size = Xb.shape[0]
-                total_train_loss += train_loss.item() * actual_batch_size
-                total_samples += actual_batch_size
+                batch_logs = {
+                    "loss": train_loss.item(),
+                    "size": Xb.shape[0],
+                }
+                callback_list.on_train_batch_end(b, batch_logs)
 
-                callback_list.on_train_batch_end(b)
-
-            # epoch train loss
-            epoch_train_loss = total_train_loss / total_samples
-            eval_loss = None
+            epoch_logs: dict[str, Any] = {}
             if validation_set is not None:
                 eval_loss = self._loss(validation_set[0], validation_set[1])
+                epoch_logs["eval"] = eval_loss.item()
 
-            logs = {"train": epoch_train_loss}
-            if eval_loss is not None:
-                logs["eval"] = eval_loss.item()
-
-            callback_list.on_epoch_end(e, logs)
+            callback_list.on_epoch_end(e, epoch_logs)
 
         callback_list.on_train_end()
 

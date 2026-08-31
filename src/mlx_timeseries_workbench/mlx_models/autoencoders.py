@@ -28,12 +28,12 @@ class FullyConnected(nn.Module):  # type: ignore
         self.layer_sizes = [input_dim] + list(hidden_dims) + [output_dim]
         logger.debug(f"layer sizes: {self.layer_sizes}")
 
-        self.layers = [
-            nn.Linear(idim, odim)
-            for idim, odim in zip(
-                self.layer_sizes[:-1], self.layer_sizes[1:], strict=True
-            )
-        ]
+        layer_list = []
+        for idim, odim in zip(self.layer_sizes[:-1], self.layer_sizes[1:], strict=True):
+            layer_list.append(nn.Linear(idim, odim))
+            layer_list.append(nn.ReLU())
+        layer_list.pop()  # removing final ReLU
+        self.network = nn.Sequential(*layer_list)
 
     def __call__(self, x: mx.array) -> mx.array:
         """Forward pass through the fully connected layers.
@@ -43,9 +43,7 @@ class FullyConnected(nn.Module):  # type: ignore
         :return: Output array of shape (batch_size, output_dim).
         :rtype: mx.array
         """
-        for layer in self.layers[:-1]:
-            x = nn.relu(layer(x))
-        t: mx.array = self.layers[-1](x)
+        t: mx.array = self.network(x)
         return t
 
 

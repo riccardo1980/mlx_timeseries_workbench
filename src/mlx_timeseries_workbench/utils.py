@@ -24,4 +24,3 @@ def plot_reconstruction(
         ax.legend(labels=["Input", "Reconstruction", "Error"])
 
     return ax
-

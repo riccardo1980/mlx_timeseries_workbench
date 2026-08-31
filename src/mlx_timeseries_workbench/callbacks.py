@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import time
 from abc import ABC
@@ -103,13 +105,18 @@ class Callback(ABC):  # noqa: B024
 class CallbackList(Callback):
     """Container managing a list of callbacks."""
 
-    def __init__(self, callbacks: list[Callback] | None) -> None:
+    def __init__(self, callbacks: list[Callback] | Callback | None = None) -> None:
         """Initialize callback list container.
 
-        :param callbacks: List of callback instances, defaults to None.
-        :type callbacks: list[Callback] | None
+        :param callbacks: Callback instance, list of callbacks, or None, defaults to None.
+        :type callbacks: list[Callback] | Callback | None, optional
         """
-        self.callbacks = callbacks if callbacks is not None else []
+        if callbacks is None:
+            self.callbacks: list[Callback] = []
+        elif isinstance(callbacks, Callback):
+            self.callbacks = [callbacks]
+        else:
+            self.callbacks = list(callbacks)
 
     def append(self, callback: Callback) -> None:
         """Append a callback to the list.
@@ -120,6 +127,42 @@ class CallbackList(Callback):
         :rtype: None
         """
         self.callbacks.append(callback)
+
+    def __iadd__(
+        self, other: CallbackList | list[Callback] | Callback | None
+    ) -> CallbackList:
+        """Extend this CallbackList in-place with another callback, list of callbacks, or CallbackList.
+
+        :param other: Callback, list of callbacks, CallbackList, or None to add.
+        :type other: CallbackList | list[Callback] | Callback | None
+        :return: The modified self instance.
+        :rtype: CallbackList
+        """
+        if other is None:
+            return self
+        if isinstance(other, CallbackList):
+            self.callbacks.extend(other.callbacks)
+        elif isinstance(other, list):
+            self.callbacks.extend(other)
+        elif isinstance(other, Callback):
+            self.callbacks.append(other)
+        else:
+            return NotImplemented
+        return self
+
+    def __add__(
+        self, other: CallbackList | list[Callback] | Callback | None
+    ) -> CallbackList:
+        """Combine this CallbackList with another callback, list of callbacks, or CallbackList.
+
+        :param other: Callback, list of callbacks, CallbackList, or None to add.
+        :type other: CallbackList | list[Callback] | Callback | None
+        :return: A new CallbackList instance containing elements from both.
+        :rtype: CallbackList
+        """
+        new_list = CallbackList(self.callbacks.copy())
+        new_list += other
+        return new_list
 
     def on_train_begin(self, logs: dict[str, Any] | None = None) -> None:
         """Dispatch on_train_begin to all registered callbacks.
@@ -286,3 +329,56 @@ class TensorBoardLogger(Callback):
         :rtype: None
         """
         self.writer.close()
+
+
+class MetricTracker(Callback):
+    """Callback that tracks and computes sample-weighted average metrics over each epoch."""
+
+    def __init__(self) -> None:
+        """Initialize MetricTracker callback."""
+        super().__init__()
+        self._total_loss: float = 0.0
+        self._total_samples: int = 0
+
+    def on_epoch_begin(self, epoch: int, logs: dict[str, Any] | None = None) -> None:
+        """Reset loss and sample accumulators at the start of each epoch.
+
+        :param epoch: Index of the epoch.
+        :type epoch: int
+        :param logs: Metric dictionary, defaults to None.
+        :type logs: dict[str, Any] | None, optional
+        :return: None
+        :rtype: None
+        """
+        self._total_loss = 0.0
+        self._total_samples = 0
+
+    def on_train_batch_end(
+        self, batch: int, logs: dict[str, Any] | None = None
+    ) -> None:
+        """Accumulate batch loss weighted by batch size.
+
+        :param batch: Index of the current batch.
+        :type batch: int
+        :param logs: Batch logs dictionary containing 'loss' and optional 'size', defaults to None.
+        :type logs: dict[str, Any] | None, optional
+        :return: None
+        :rtype: None
+        """
+        if logs is not None and "loss" in logs:
+            batch_size: int = int(logs.get("size", 1))
+            self._total_loss += float(logs["loss"]) * batch_size
+            self._total_samples += batch_size
+
+    def on_epoch_end(self, epoch: int, logs: dict[str, Any] | None = None) -> None:
+        """Compute the epoch average training loss and inject it into logs dictionary.
+
+        :param epoch: Index of the completed epoch.
+        :type epoch: int
+        :param logs: Epoch metrics dictionary to populate with 'train', defaults to None.
+        :type logs: dict[str, Any] | None, optional
+        :return: None
+        :rtype: None
+        """
+        if logs is not None and self._total_samples > 0:
+            logs["train"] = self._total_loss / self._total_samples
