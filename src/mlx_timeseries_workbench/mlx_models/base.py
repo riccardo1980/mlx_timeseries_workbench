@@ -106,7 +106,7 @@ class Trainer:
                 mx.eval(self.state)
 
                 batch_logs = {
-                    "loss": train_loss.item(),
+                    "loss": train_loss,
                     "size": Xb.shape[0],
                 }
                 callback_list.on_train_batch_end(b, batch_logs)

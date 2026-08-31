@@ -1,5 +1,6 @@
 from typing import Any
 
+import mlx.core as mx
 import pytest
 
 from mlx_timeseries_workbench.callbacks import Callback, CallbackList, MetricTracker
@@ -9,10 +10,10 @@ def test_metric_tracker_accumulation() -> None:
     tracker = MetricTracker()
     tracker.on_epoch_begin(1)
 
-    # Batch 1: size 256, loss 1.0
-    tracker.on_train_batch_end(0, {"loss": 1.0, "size": 256})
-    # Batch 2: size 100, loss 0.5
-    tracker.on_train_batch_end(1, {"loss": 0.5, "size": 100})
+    # Batch 1: size 256, loss 1.0 (as mx.array)
+    tracker.on_train_batch_end(0, {"loss": mx.array(1.0), "size": 256})
+    # Batch 2: size 100, loss 0.5 (as mx.array)
+    tracker.on_train_batch_end(1, {"loss": mx.array(0.5), "size": 100})
 
     logs: dict[str, Any] = {}
     tracker.on_epoch_end(1, logs)
