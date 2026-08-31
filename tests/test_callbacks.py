@@ -46,14 +46,17 @@ def test_metric_tracker_in_callback_list() -> None:
     callback_list = CallbackList([tracker])
 
     callback_list.on_epoch_begin(1)
-    callback_list.on_train_batch_end(0, {"loss": 0.8, "size": 50})
+    callback_list.on_train_batch_end(0, {"loss": mx.array(0.8), "size": 50})
 
-    logs: dict[str, Any] = {"eval": 0.9}
+    # Pass un-evaluated mx.array eval loss (as produced by Trainer.fit)
+    logs: dict[str, Any] = {"eval": mx.array(0.9)}
     callback_list.on_epoch_end(1, logs)
 
     assert "train" in logs
+    assert isinstance(logs["train"], float)
     assert abs(logs["train"] - 0.8) < 1e-6
-    assert logs["eval"] == 0.9
+    assert isinstance(logs["eval"], float)
+    assert abs(logs["eval"] - 0.9) < 1e-6
 
 
 @pytest.mark.parametrize(
@@ -107,6 +110,3 @@ def test_callback_list_iadd(
     # Verify in-place modification
     assert len(target.callbacks) == 1 + expected_added_count
     assert target.callbacks[0] is t1
-
-
-

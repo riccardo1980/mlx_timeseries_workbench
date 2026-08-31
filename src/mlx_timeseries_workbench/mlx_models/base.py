@@ -114,7 +114,7 @@ class Trainer:
             epoch_logs: dict[str, Any] = {}
             if validation_set is not None:
                 eval_loss = self._loss(validation_set[0], validation_set[1])
-                epoch_logs["eval"] = eval_loss.item()
+                epoch_logs["eval"] = eval_loss
 
             callback_list.on_epoch_end(e, epoch_logs)
 

@@ -376,7 +376,7 @@ class MetricTracker(Callback):
             self._total_samples += batch_size
 
     def on_epoch_end(self, epoch: int, logs: dict[str, Any] | None = None) -> None:
-        """Compute the epoch average training loss with a single evaluation and inject it into logs dictionary.
+        """Compute the epoch average training loss and evaluate all log metrics in a single combined sync.
 
         :param epoch: Index of the completed epoch.
         :type epoch: int
@@ -385,7 +385,18 @@ class MetricTracker(Callback):
         :return: None
         :rtype: None
         """
-        if logs is not None and self._total_samples > 0:
-            epoch_loss = self._total_loss / self._total_samples
-            mx.eval(epoch_loss)
-            logs["train"] = epoch_loss.item()
+        if logs is not None:
+            if self._total_samples > 0:
+                epoch_loss = self._total_loss / self._total_samples
+                logs["train"] = epoch_loss
+
+            # Evaluate all mx.array metric scalars concurrently in one GPU sync
+            arrays_to_eval = [v for v in logs.values() if isinstance(v, mx.array)]
+            if arrays_to_eval:
+                mx.eval(*arrays_to_eval)
+
+            # Convert all evaluated scalars to native Python floats for downstream callbacks
+            for k in list(logs.keys()):
+                val = logs[k]
+                if isinstance(val, mx.array):
+                    logs[k] = val.item()
