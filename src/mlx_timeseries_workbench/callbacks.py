@@ -9,14 +9,18 @@ logger = logging.getLogger(__name__)
 
 
 class Callback(ABC):  # noqa: B024
+    """Abstract base class used to build new callbacks."""
+
     def on_train_begin(self, logs: dict[str, Any] | None = None) -> None:  # noqa: B027
         """Called at the beginning of training.
 
         Subclasses should override for any actions to run.
 
-        Args:
-            logs: Dict. Currently no data is passed to this argument for this
-              method but that may change in the future.
+        :param logs: Metric dictionary. Currently no data is passed to this argument for this
+            method, defaults to None.
+        :type logs: dict[str, Any] | None, optional
+        :return: None
+        :rtype: None
         """
         pass
 
@@ -25,10 +29,10 @@ class Callback(ABC):  # noqa: B024
 
         Subclasses should override for any actions to run.
 
-        Args:
-            logs: Dict. Currently the output of the last call to
-              `on_epoch_end()` is passed to this argument for this method but
-              that may change in the future.
+        :param logs: Metric dictionary containing results from the last epoch, defaults to None.
+        :type logs: dict[str, Any] | None, optional
+        :return: None
+        :rtype: None
         """
         pass
 
@@ -39,14 +43,12 @@ class Callback(ABC):  # noqa: B024
 
         Subclasses should override for any actions to run.
 
-        Note that if the `steps_per_execution` argument to `compile` in
-        `Model` is set to `N`, this method will only be called every
-        `N` batches.
-
-        Args:
-            batch: Integer, index of batch within the current epoch.
-            logs: Dict. Currently no data is passed to this argument for this
-              method but that may change in the future.
+        :param batch: Index of batch within the current epoch.
+        :type batch: int
+        :param logs: Metric dictionary, defaults to None.
+        :type logs: dict[str, Any] | None, optional
+        :return: None
+        :rtype: None
         """
         pass
 
@@ -57,13 +59,12 @@ class Callback(ABC):  # noqa: B024
 
         Subclasses should override for any actions to run.
 
-        Note that if the `steps_per_execution` argument to `compile` in
-        `Model` is set to `N`, this method will only be called every
-        `N` batches.
-
-        Args:
-            batch: Integer, index of batch within the current epoch.
-            logs: Dict. Aggregated metric results up until this batch.
+        :param batch: Index of batch within the current epoch.
+        :type batch: int
+        :param logs: Aggregated metric results up until this batch, defaults to None.
+        :type logs: dict[str, Any] | None, optional
+        :return: None
+        :rtype: None
         """
         pass
 
@@ -71,12 +72,14 @@ class Callback(ABC):  # noqa: B024
         """Called at the start of an epoch.
 
         Subclasses should override for any actions to run. This function should
-        only be called during TRAIN mode.
+        only be called during train mode.
 
-        Args:
-            epoch: Integer, index of epoch.
-            logs: Dict. Currently no data is passed to this argument for this
-              method but that may change in the future.
+        :param epoch: Index of the epoch.
+        :type epoch: int
+        :param logs: Metric dictionary, defaults to None.
+        :type logs: dict[str, Any] | None, optional
+        :return: None
+        :rtype: None
         """
         pass
 
@@ -84,57 +87,130 @@ class Callback(ABC):  # noqa: B024
         """Called at the end of an epoch.
 
         Subclasses should override for any actions to run. This function should
-        only be called during TRAIN mode.
+        only be called during train mode.
 
-        Args:
-            epoch: Integer, index of epoch.
-            logs: Dict, metric results for this training epoch, and for the
-              validation epoch if validation is performed. Validation result
-              keys are prefixed with `val_`. For training epoch, the values of
-              the `Model`'s metrics are returned. Example:
-              `{'loss': 0.2, 'accuracy': 0.7}`.
+        :param epoch: Index of the epoch.
+        :type epoch: int
+        :param logs: Metric results for this training epoch, and for the
+            validation epoch if validation is performed, defaults to None.
+        :type logs: dict[str, Any] | None, optional
+        :return: None
+        :rtype: None
         """
         pass
 
 
 class CallbackList(Callback):
-    def __init__(self, callbacks: list[Callback] | None):
+    """Container managing a list of callbacks."""
+
+    def __init__(self, callbacks: list[Callback] | None) -> None:
+        """Initialize callback list container.
+
+        :param callbacks: List of callback instances, defaults to None.
+        :type callbacks: list[Callback] | None
+        """
         self.callbacks = callbacks if callbacks is not None else []
 
     def append(self, callback: Callback) -> None:
+        """Append a callback to the list.
+
+        :param callback: Callback instance to append.
+        :type callback: Callback
+        :return: None
+        :rtype: None
+        """
         self.callbacks.append(callback)
 
     def on_train_begin(self, logs: dict[str, Any] | None = None) -> None:
+        """Dispatch on_train_begin to all registered callbacks.
+
+        :param logs: Metric dictionary, defaults to None.
+        :type logs: dict[str, Any] | None, optional
+        :return: None
+        :rtype: None
+        """
         for callback in self.callbacks:
             callback.on_train_begin(logs)
 
     def on_train_end(self, logs: dict[str, Any] | None = None) -> None:
+        """Dispatch on_train_end to all registered callbacks.
+
+        :param logs: Metric dictionary, defaults to None.
+        :type logs: dict[str, Any] | None, optional
+        :return: None
+        :rtype: None
+        """
         for callback in self.callbacks:
             callback.on_train_end(logs)
 
     def on_train_batch_begin(
         self, batch: int, logs: dict[str, Any] | None = None
     ) -> None:
+        """Dispatch on_train_batch_begin to all registered callbacks.
+
+        :param batch: Index of the batch.
+        :type batch: int
+        :param logs: Metric dictionary, defaults to None.
+        :type logs: dict[str, Any] | None, optional
+        :return: None
+        :rtype: None
+        """
         for callback in self.callbacks:
             callback.on_train_batch_begin(batch, logs)
 
     def on_train_batch_end(
         self, batch: int, logs: dict[str, Any] | None = None
     ) -> None:
+        """Dispatch on_train_batch_end to all registered callbacks.
+
+        :param batch: Index of the batch.
+        :type batch: int
+        :param logs: Metric dictionary, defaults to None.
+        :type logs: dict[str, Any] | None, optional
+        :return: None
+        :rtype: None
+        """
         for callback in self.callbacks:
             callback.on_train_batch_end(batch, logs)
 
     def on_epoch_begin(self, epoch: int, logs: dict[str, Any] | None = None) -> None:
+        """Dispatch on_epoch_begin to all registered callbacks.
+
+        :param epoch: Index of the epoch.
+        :type epoch: int
+        :param logs: Metric dictionary, defaults to None.
+        :type logs: dict[str, Any] | None, optional
+        :return: None
+        :rtype: None
+        """
         for callback in self.callbacks:
             callback.on_epoch_begin(epoch, logs)
 
     def on_epoch_end(self, epoch: int, logs: dict[str, Any] | None = None) -> None:
+        """Dispatch on_epoch_end to all registered callbacks.
+
+        :param epoch: Index of the epoch.
+        :type epoch: int
+        :param logs: Metric dictionary, defaults to None.
+        :type logs: dict[str, Any] | None, optional
+        :return: None
+        :rtype: None
+        """
         for callback in self.callbacks:
             callback.on_epoch_end(epoch, logs)
 
 
 class ProgressBarLogger(Callback):
+    """Callback that prints training progress and metrics to stdout."""
+
     def __init__(self, epochs: int, verbose: int) -> None:
+        """Initialize progress bar logger.
+
+        :param epochs: Total number of epochs.
+        :type epochs: int
+        :param verbose: Verbosity level (0: silent, >0: print metrics).
+        :type verbose: int
+        """
         super().__init__()
         self.epochs = epochs
         self.verbose = verbose
@@ -142,9 +218,27 @@ class ProgressBarLogger(Callback):
         self._epoch_tic = 0.0
 
     def on_epoch_begin(self, epoch: int, logs: dict[str, Any] | None = None) -> None:
+        """Record epoch start time.
+
+        :param epoch: Index of the epoch.
+        :type epoch: int
+        :param logs: Metric dictionary, defaults to None.
+        :type logs: dict[str, Any] | None, optional
+        :return: None
+        :rtype: None
+        """
         self._epoch_tic = time.perf_counter()
 
     def on_epoch_end(self, epoch: int, logs: dict[str, Any] | None = None) -> None:
+        """Compute epoch elapsed time and print epoch statistics.
+
+        :param epoch: Index of the epoch.
+        :type epoch: int
+        :param logs: Metric dictionary for the completed epoch, defaults to None.
+        :type logs: dict[str, Any] | None, optional
+        :return: None
+        :rtype: None
+        """
         toc = time.perf_counter()
         epoch_elapsed_time_sec = toc - self._epoch_tic
 
@@ -159,13 +253,36 @@ class ProgressBarLogger(Callback):
 
 
 class TensorBoardLogger(Callback):
+    """Callback that writes training metrics to TensorBoard logs."""
+
     def __init__(self, log_dir: str) -> None:
+        """Initialize TensorBoard logger.
+
+        :param log_dir: Directory where TensorBoard events will be written.
+        :type log_dir: str
+        """
         super().__init__()
         self.writer = SummaryWriter(log_dir=log_dir)
 
     def on_epoch_end(self, epoch: int, logs: dict[str, Any] | None = None) -> None:
+        """Log epoch metrics as scalar values to TensorBoard.
+
+        :param epoch: Index of the epoch.
+        :type epoch: int
+        :param logs: Metric dictionary for the epoch, defaults to None.
+        :type logs: dict[str, Any] | None, optional
+        :return: None
+        :rtype: None
+        """
         if logs is not None:
             self.writer.add_scalars("losses", logs, epoch)
 
     def on_train_end(self, logs: dict[str, Any] | None = None) -> None:
+        """Close the TensorBoard summary writer.
+
+        :param logs: Final metrics dictionary, defaults to None.
+        :type logs: dict[str, Any] | None, optional
+        :return: None
+        :rtype: None
+        """
         self.writer.close()
