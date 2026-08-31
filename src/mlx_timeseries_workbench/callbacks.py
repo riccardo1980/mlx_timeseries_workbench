@@ -5,6 +5,7 @@ import time
 from abc import ABC
 from typing import Any
 
+import mlx.core as mx
 from tensorboardX import SummaryWriter
 
 logger = logging.getLogger(__name__)
@@ -332,12 +333,12 @@ class TensorBoardLogger(Callback):
 
 
 class MetricTracker(Callback):
-    """Callback that tracks and computes sample-weighted average metrics over each epoch."""
+    """Callback that tracks and computes sample-weighted average metrics over each epoch with O(1) memory."""
 
     def __init__(self) -> None:
         """Initialize MetricTracker callback."""
         super().__init__()
-        self._total_loss: float = 0.0
+        self._total_loss: mx.array = mx.array(0.0)
         self._total_samples: int = 0
 
     def on_epoch_begin(self, epoch: int, logs: dict[str, Any] | None = None) -> None:
@@ -350,28 +351,32 @@ class MetricTracker(Callback):
         :return: None
         :rtype: None
         """
-        self._total_loss = 0.0
+        self._total_loss = mx.array(0.0)
         self._total_samples = 0
 
     def on_train_batch_end(
         self, batch: int, logs: dict[str, Any] | None = None
     ) -> None:
-        """Accumulate batch loss weighted by batch size.
+        """Accumulate batch loss weighted by batch size into rolling scalar array.
 
         :param batch: Index of the current batch.
         :type batch: int
-        :param logs: Batch logs dictionary containing 'loss' and optional 'size', defaults to None.
+        :param logs: Batch logs dictionary containing 'loss' (mx.array or float) and optional 'size', defaults to None.
         :type logs: dict[str, Any] | None, optional
         :return: None
         :rtype: None
         """
         if logs is not None and "loss" in logs:
             batch_size: int = int(logs.get("size", 1))
-            self._total_loss += float(logs["loss"]) * batch_size
+            loss_val = logs["loss"]
+            if isinstance(loss_val, mx.array):
+                self._total_loss = self._total_loss + loss_val * batch_size
+            else:
+                self._total_loss = self._total_loss + float(loss_val) * batch_size
             self._total_samples += batch_size
 
     def on_epoch_end(self, epoch: int, logs: dict[str, Any] | None = None) -> None:
-        """Compute the epoch average training loss and inject it into logs dictionary.
+        """Compute the epoch average training loss and evaluate all log metrics in a single combined sync.
 
         :param epoch: Index of the completed epoch.
         :type epoch: int
@@ -380,5 +385,18 @@ class MetricTracker(Callback):
         :return: None
         :rtype: None
         """
-        if logs is not None and self._total_samples > 0:
-            logs["train"] = self._total_loss / self._total_samples
+        if logs is not None:
+            if self._total_samples > 0:
+                epoch_loss = self._total_loss / self._total_samples
+                logs["train"] = epoch_loss
+
+            # Evaluate all mx.array metric scalars concurrently in one GPU sync
+            arrays_to_eval = [v for v in logs.values() if isinstance(v, mx.array)]
+            if arrays_to_eval:
+                mx.eval(*arrays_to_eval)
+
+            # Convert all evaluated scalars to native Python floats for downstream callbacks
+            for k in list(logs.keys()):
+                val = logs[k]
+                if isinstance(val, mx.array):
+                    logs[k] = val.item()
